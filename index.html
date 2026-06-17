@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try {
+    var stored = localStorage.getItem('rvt-theme');
+    var theme = stored || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Rootless Voicing Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root, :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#0a0a0f;
+    --surface:#14141c;
+    --surface-2:#1b1b26;
+    --surface-3:#23232f;
+    --border:#2a2a38;
+    --text:#f2efe9;
+    --text-dim:#8b8b9a;
+    --pink:#ff3c6e;
+    --mint:#4af0c4;
+    --amber:#ffb547;
+    --text-pink:#ff3c6e;
+    --text-mint:#4af0c4;
+    --text-amber:#ffb547;
+    --glow1: rgba(255,60,110,0.10);
+    --glow2: rgba(74,240,196,0.08);
+    --radius:14px;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:#f6f4ee;
+    --surface:#ffffff;
+    --surface-2:#eeebe2;
+    --surface-3:#e2ddd0;
+    --border:#dcd6c7;
+    --text:#1c1b1f;
+    --text-dim:#6e6c75;
+    --pink:#ff3c6e;
+    --mint:#4af0c4;
+    --amber:#ffb547;
+    --text-pink:#c2185b;
+    --text-mint:#0f8f6c;
+    --text-amber:#a15c00;
+    --glow1: rgba(255,60,110,0.06);
+    --glow2: rgba(74,240,196,0.05);
+    --radius:14px;
+  }
+  button{
+    -webkit-appearance:none; appearance:none;
+    font:inherit; color:inherit; background:none; border:none;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, var(--glow1), transparent 60%),
+      radial-gradient(ellipse 700px 500px at 100% 110%, var(--glow2), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:'Noto Sans JP', sans-serif;
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    transition: background-color .2s, color .2s;
+  }
+  .mono{ font-family:'Space Mono','Courier New',monospace; }
+  #app{
+    max-width:640px;
+    margin:0 auto;
+    padding:28px 20px 64px;
+  }
+  header.top{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:22px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:14px;
+  }
+  header.top h1{
+    font-family:'Space Mono',monospace;
+    font-size:18px;
+    letter-spacing:0.5px;
+    margin:0;
+    font-weight:700;
+  }
+  header.top h1 .accent{ color:var(--text-pink); }
+  header.top .badge{
+    font-family:'Space Mono',monospace;
+    font-size:11px;
+    color:var(--text-dim);
+  }
+  .top-right{ display:flex; align-items:center; gap:10px; }
+  .theme-toggle{
+    width:30px; height:30px; border-radius:50%; flex:0 0 auto;
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .theme-toggle:hover{ border-color:var(--text-dim); }
+  .theme-toggle svg{ width:15px; height:15px; }
+  .theme-toggle .icon-sun{ display:none; }
+  .theme-toggle .icon-moon{ display:block; }
+  [data-theme="light"] .theme-toggle .icon-sun{ display:block; }
+  [data-theme="light"] .theme-toggle .icon-moon{ display:none; }
+  .screen{ display:none; }
+  .screen.active{ display:block; }
+
+  .card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:22px;
+    margin-bottom:16px;
+  }
+  .card h2{
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:1px;
+    color:var(--text-dim);
+    margin:0 0 14px;
+    font-weight:700;
+  }
+  .lead-text{ color:var(--text-dim); font-size:14px; line-height:1.7; margin:0 0 18px; }
+  .lead-text b{ color:var(--text); }
+
+  /* setup: midi row */
+  .midi-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--text-dim); flex:0 0 auto; transition:background .2s; }
+  .dot.ok{ background:var(--mint); box-shadow:0 0 8px rgba(74,240,196,.6); }
+  .dot.err{ background:var(--pink); box-shadow:0 0 8px rgba(255,60,110,.6); }
+  .dot.wait{ background:var(--amber); }
+  select{
+    background:var(--surface-2);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:8px;
+    padding:8px 10px;
+    font-family:'Noto Sans JP',sans-serif;
+    font-size:13px;
+    flex:1;
+    min-width:0;
+  }
+  .midi-status-text{ font-size:12px; color:var(--text-dim); margin:6px 0 0; line-height:1.6;}
+  button.linklike{
+    background:none; border:none; color:var(--text-mint); text-decoration:underline;
+    font-size:12px; cursor:pointer; padding:0; font-family:inherit;
+  }
+
+  /* quiz length grid */
+  .len-grid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .len-btn{
+    font-family:'Space Mono',monospace;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:8px;
+    padding:10px 0;
+    font-size:14px;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .len-btn:hover{ border-color:var(--mint); }
+  .len-btn.selected{
+    background:var(--mint);
+    color:#08110d;
+    border-color:var(--mint);
+    font-weight:700;
+  }
+  .primary-btn{
+    width:100%;
+    background:var(--pink);
+    color:#1a0008;
+    border:none;
+    border-radius:10px;
+    padding:14px 0;
+    font-size:15px;
+    font-weight:700;
+    cursor:pointer;
+    font-family:'Noto Sans JP',sans-serif;
+    transition:transform .1s, opacity .15s;
+  }
+  .primary-btn:hover{ transform:translateY(-1px); }
+  .primary-btn:active{ transform:translateY(0); }
+  .primary-btn:disabled{ opacity:.4; cursor:not-allowed; transform:none; }
+  .secondary-btn{
+    width:100%;
+    background:transparent;
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 0;
+    font-size:14px;
+    cursor:pointer;
+    font-family:'Noto Sans JP',sans-serif;
+  }
+  .secondary-btn:hover{ border-color:var(--text-dim); }
+  .btn-row{ display:flex; gap:10px; margin-top:10px; }
+  .btn-row > *{ flex:1; }
+
+  /* quiz screen */
+  .progress-row{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:12px; color:var(--text-dim); font-family:'Space Mono',monospace; }
+  .progress-bar{ height:4px; background:var(--surface-2); border-radius:2px; overflow:hidden; margin-bottom:18px; }
+  .progress-fill{ height:100%; background:var(--mint); transition:width .25s ease; }
+
+  .quiz-card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:18px;
+    padding:36px 24px 30px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .chord-symbol{
+    font-family:'Space Mono',monospace;
+    font-weight:700;
+    font-size:clamp(48px,12vw,72px);
+    line-height:1;
+    margin:0 0 14px;
+    position:relative;
+  }
+  .form-banner{
+    font-family:'Space Mono',monospace;
+    font-weight:900;
+    font-size:clamp(42px,14vw,68px);
+    letter-spacing:1px;
+    padding:22px 0;
+    margin:-36px -24px 22px;
+    line-height:1;
+  }
+  .form-banner.A{ background:var(--pink); color:#1a0008; }
+  .form-banner.B{ background:var(--mint); color:#08110d; }
+
+  .stack-wrap{ display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:24px; }
+  .stack{ display:flex; flex-direction:column-reverse; gap:6px; align-items:center; }
+  .chip{
+    font-family:'Space Mono',monospace;
+    font-weight:700;
+    font-size:15px;
+    width:46px;
+    height:34px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border-radius:8px;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+  }
+  .stack.formA .chip{ border-color:rgba(255,60,110,.5); }
+  .stack.formB .chip{ border-color:rgba(74,240,196,.5); }
+  .stack-caption{ font-size:12px; color:var(--text-dim); }
+  .stack-caption .arrow-line{ font-family:'Space Mono',monospace; font-size:14px; color:var(--text); display:block; margin-top:4px; }
+
+  .status-area{ min-height:74px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; }
+  .status-waiting{ color:var(--text-dim); font-size:14px; }
+  .status-waiting .pulse{ display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--amber); margin-right:6px; animation:pulse 1.1s infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.25;} }
+
+  .result-mark{ font-size:54px; font-weight:700; line-height:1; font-family:'Space Mono',monospace; }
+  .result-mark.correct{ color:var(--text-mint); animation:pop .35s ease; }
+  .result-mark.incorrect{ color:var(--text-pink); animation:shake .35s ease; }
+  @keyframes pop{ from{ transform:scale(.4); opacity:0; } to{ transform:scale(1); opacity:1; } }
+  @keyframes shake{ 0%,100%{ transform:translateX(0); } 25%{ transform:translateX(-6px); } 75%{ transform:translateX(6px); } }
+  .result-reason{ font-size:13px; color:var(--text-dim); max-width:380px; }
+  .result-meta{ font-size:11px; color:var(--text-dim); font-family:'Space Mono',monospace; }
+
+  @media (prefers-reduced-motion: reduce){
+    .result-mark, .status-waiting .pulse{ animation:none !important; }
+  }
+
+  .skip-row{ text-align:center; margin-top:14px; }
+  .skip-row button{
+    background:none; border:none; color:var(--text-dim); font-size:12px; text-decoration:underline; cursor:pointer; font-family:inherit;
+  }
+
+  /* virtual keyboard */
+  .kb-toggle{
+    width:100%; text-align:center; margin-top:18px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:10px; padding:10px; font-size:13px; color:var(--text-dim); cursor:pointer; font-family:'Noto Sans JP',sans-serif;
+  }
+  .kb-wrap{ margin-top:14px; overflow-x:auto; padding-bottom:6px; }
+  .kb{ position:relative; display:flex; height:120px; width:max-content; user-select:none; }
+  .wkey{
+    width:34px; height:120px; background:#ece8e0; border:1px solid #11111a; border-radius:0 0 5px 5px;
+    position:relative; flex:0 0 auto; cursor:pointer; box-sizing:border-box;
+  }
+  .wkey.active{ background:var(--mint); }
+  .bkey{
+    width:22px; height:74px; background:#15151d; border:1px solid #000; border-radius:0 0 4px 4px;
+    position:absolute; top:0; z-index:2; cursor:pointer; box-sizing:border-box;
+  }
+  .bkey.active{ background:var(--pink); }
+  .key-label{ position:absolute; bottom:6px; left:0; right:0; text-align:center; font-size:9px; color:#555; font-family:'Space Mono',monospace; pointer-events:none;}
+  .bkey .key-label{ color:#999; }
+
+  /* result screen */
+  .score-hero{ text-align:center; padding:14px 0 6px; }
+  .score-pct{ font-family:'Space Mono',monospace; font-weight:700; font-size:64px; line-height:1; }
+  .score-frac{ color:var(--text-dim); font-size:14px; margin-top:6px; font-family:'Space Mono',monospace; }
+  .score-time{ color:var(--text-dim); font-size:12px; margin-top:10px; }
+
+  table.breakdown{ width:100%; border-collapse:collapse; font-size:13px; margin-top:4px; }
+  table.breakdown th{ text-align:left; color:var(--text-dim); font-weight:500; padding:6px 4px; border-bottom:1px solid var(--border); font-size:11px; text-transform:uppercase; letter-spacing:.5px;}
+  table.breakdown td{ padding:8px 4px; border-bottom:1px solid var(--border); font-family:'Space Mono',monospace; }
+  table.breakdown td.bar-cell{ width:50%; }
+  .mini-bar{ height:7px; border-radius:4px; background:var(--surface-2); overflow:hidden; }
+  .mini-bar > div{ height:100%; background:var(--mint); }
+
+  .share-text-box{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px;
+    font-family:'Space Mono',monospace; font-size:12px; color:var(--text-dim); white-space:pre-wrap; margin-bottom:14px;
+  }
+
+  footer.note{ text-align:center; color:var(--text-dim); font-size:11px; margin-top:30px; line-height:1.7; }
+
+  @media (max-width:380px){
+    .len-grid{ grid-template-columns:repeat(5,1fr); }
+    .chord-symbol{ font-size:42px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <h1>Rootless<span class="accent">Voicing</span>Trainer</h1>
+    <div class="top-right">
+      <span class="badge" id="header-badge">SETUP</span>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="ライト/ダークテーマを切り替え" title="ライト/ダークテーマを切り替え">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============ SETUP SCREEN ============ -->
+  <section class="screen active" id="screen-setup">
+    <div class="card">
+      <h2>このアプリについて</h2>
+      <p class="lead-text">
+        ジャズコードのルートレス・ヴォイシング(ルートを抜いた4音)を瞬時に弾く練習です。<br>
+        <b>Aフォーム</b> = 下から 3→5→7→9 / <b>Bフォーム</b> = 下から 7→9→3→5。<br>
+        どちらもオクターブはどこで弾いてもOK、音の並び順だけ判定します。<br>
+        対象コードは <b>7 / maj7 / m7 / m7♭5</b> の4種類×12キーです。
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>MIDIキーボード</h2>
+      <div class="midi-row">
+        <span class="dot" id="midi-dot"></span>
+        <select id="midi-select" disabled>
+          <option>未接続</option>
+        </select>
+      </div>
+      <p class="midi-status-text" id="midi-status-text">MIDIへのアクセスを確認しています…</p>
+      <p style="margin:10px 0 0;"><a href="midi-setup-guide.html" target="_blank" style="color:var(--text-mint); font-size:12px; text-decoration:underline;">MIDIキーボードの繋ぎ方ガイドを見る →</a></p>
+    </div>
+
+    <div class="card">
+      <h2>出題数</h2>
+      <div class="len-grid" id="len-grid"></div>
+      <button class="primary-btn" id="start-btn">練習を始める</button>
+    </div>
+
+    <p style="text-align:center;">
+      <button class="linklike" id="show-kb-setup-link">MIDI機器がない場合はテスト用鍵盤を表示</button>
+    </p>
+    <div class="kb-wrap" id="kb-wrap-setup" style="display:none;"></div>
+  </section>
+
+  <!-- ============ QUIZ SCREEN ============ -->
+  <section class="screen" id="screen-quiz">
+    <div class="progress-row">
+      <span id="progress-text">問 1 / 10</span>
+      <span id="progress-score">○0 ×0</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+
+    <div class="quiz-card">
+      <div class="form-banner A" id="form-pill">Aフォーム</div>
+      <div class="chord-symbol" id="chord-symbol">C7</div>
+
+      <div class="stack-wrap">
+        <div class="stack formA" id="stack-visual"></div>
+        <div class="stack-caption">
+          積み方(下から)
+          <span class="arrow-line" id="stack-caption-line">3→5→7→9</span>
+        </div>
+      </div>
+
+      <div class="status-area" id="status-area">
+        <div class="status-waiting"><span class="pulse"></span>演奏してください</div>
+      </div>
+    </div>
+
+    <div class="skip-row"><button id="skip-btn">スキップ(不正解として記録して次へ)</button></div>
+
+    <button class="kb-toggle" id="show-kb-quiz-link">テスト用鍵盤を表示 / 隠す</button>
+    <div class="kb-wrap" id="kb-wrap-quiz" style="display:none;"></div>
+  </section>
+
+  <!-- ============ RESULT SCREEN ============ -->
+  <section class="screen" id="screen-result">
+    <div class="card score-hero">
+      <div class="score-pct" id="score-pct">0%</div>
+      <div class="score-frac" id="score-frac">0 / 0 正解</div>
+      <div class="score-time" id="score-time"></div>
+    </div>
+
+    <div class="card">
+      <h2>コード種別ごとの正答率</h2>
+      <table class="breakdown" id="breakdown-quality"></table>
+    </div>
+
+    <div class="card">
+      <h2>フォーム別の正答率</h2>
+      <table class="breakdown" id="breakdown-form"></table>
+    </div>
+
+    <div class="card">
+      <h2>結果をシェア</h2>
+      <div class="share-text-box" id="share-text-box"></div>
+      <div class="btn-row">
+        <button class="secondary-btn" id="share-native-btn" style="display:none;">シェア</button>
+        <button class="secondary-btn" id="share-x-btn">𝕏でポスト</button>
+        <button class="secondary-btn" id="share-copy-btn">コピーする</button>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="primary-btn" id="retry-btn">同じ問題数でもう一度</button>
+      <button class="secondary-btn" id="back-setup-btn">設定からやり直す</button>
+    </div>
+  </section>
+
+  <footer class="note">
+    このアプリはブラウザ内だけで動作し、演奏データはどこにも送信されません。<br>
+    Web MIDI APIに対応した Chrome / Edge 等のブラウザでご利用ください。
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------------- Theme (dark / light) ---------------- */
+  const THEME_KEY = 'rvt-theme';
+  function getStoredTheme(){ try { return localStorage.getItem(THEME_KEY); } catch(e){ return null; } }
+  function setStoredTheme(v){ try { localStorage.setItem(THEME_KEY, v); } catch(e){} }
+
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  if (themeToggleBtn){
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      setStoredTheme(next);
+    });
+  }
+  if (window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+      if (!getStoredTheme()){
+        document.documentElement.setAttribute('data-theme', e.matches ? 'light' : 'dark');
+      }
+    });
+  }
+
+  /* ---------------- Music theory data ---------------- */
+  const ROOT_NAMES = ['C','D♭','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+  const NOTE_NAMES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  const CHORD_QUALITIES = {
+    dom7: { label:'7',     suffix:'7',     deg:{3:4, 5:7, 7:10, 9:14} },
+    maj7: { label:'maj7',  suffix:'maj7',  deg:{3:4, 5:7, 7:11, 9:14} },
+    m7:   { label:'m7',    suffix:'m7',    deg:{3:3, 5:7, 7:10, 9:14} },
+    m7b5: { label:'m7♭5',  suffix:'m7♭5',  deg:{3:3, 5:6, 7:10, 9:14} },
+  };
+  const QUALITY_KEYS = Object.keys(CHORD_QUALITIES);
+
+  const FORMS = {
+    A: [3,5,7,9],
+    B: [7,9,3,5],
+  };
+
+  function noteName(midi){
+    const pc = ((midi % 12) + 12) % 12;
+    const octave = Math.floor(midi/12) - 1;
+    return NOTE_NAMES_SHARP[pc] + octave;
+  }
+
+  /* ---------------- Judgment ---------------- */
+  // Build a question: random root, quality, form.
+  let lastQuestionKey = '';
+  function generateQuestion(){
+    let q;
+    let tries = 0;
+    do {
+      const rootIndex = Math.floor(Math.random()*12);
+      const qualityKey = QUALITY_KEYS[Math.floor(Math.random()*QUALITY_KEYS.length)];
+      const formKey = Math.random() < 0.5 ? 'A' : 'B';
+      const key = rootIndex+'|'+qualityKey+'|'+formKey;
+      q = { rootIndex, qualityKey, formKey, key };
+      tries++;
+    } while (q.key === lastQuestionKey && tries < 6);
+    lastQuestionKey = q.key;
+
+    const degOffsets = CHORD_QUALITIES[q.qualityKey].deg;
+    const expectedPCs = {};
+    [3,5,7,9].forEach(d => { expectedPCs[d] = (q.rootIndex + degOffsets[d]) % 12; });
+    q.expectedPCs = expectedPCs;
+    q.expectedOrder = FORMS[q.formKey];
+    q.chordSymbol = ROOT_NAMES[q.rootIndex] + CHORD_QUALITIES[q.qualityKey].suffix;
+    return q;
+  }
+
+  // Evaluate a set of played MIDI note numbers against a question.
+  function judge(question, playedNotesArr){
+    const n = playedNotesArr.length;
+    if (n !== 4){
+      return { correct:false, reason:'count', detail:`4音ちょうど弾いてください(今回は${n}音)` };
+    }
+    const sorted = playedNotesArr.slice().sort((a,b)=>a-b);
+    const pcToDegree = {};
+    Object.keys(question.expectedPCs).forEach(deg => { pcToDegree[question.expectedPCs[deg]] = Number(deg); });
+    const expectedPCSet = new Set(Object.values(question.expectedPCs));
+    const playedPCs = sorted.map(m => m % 12);
+    const playedPCSet = new Set(playedPCs);
+
+    let setMatches = playedPCSet.size === 4 && expectedPCSet.size === 4;
+    if (setMatches){
+      for (const pc of expectedPCSet){ if (!playedPCSet.has(pc)) { setMatches = false; break; } }
+    }
+    if (!setMatches){
+      return { correct:false, reason:'notes', detail:'音が正しくありません(ルートが混ざっていないか確認してください)' };
+    }
+    const playedDegreeSeq = sorted.map(m => pcToDegree[((m%12)+12)%12]);
+    const orderMatches = playedDegreeSeq.every((d,i) => d === question.expectedOrder[i]);
+    if (!orderMatches){
+      const otherForm = question.formKey === 'A' ? 'B' : 'A';
+      return { correct:false, reason:'order', detail:`音は合っていますが積み方の順番が違います(${otherForm}フォームになっています)` };
+    }
+    return { correct:true };
+  }
+
+  /* ---------------- MIDI handling ---------------- */
+  const midiDot = document.getElementById('midi-dot');
+  const midiSelect = document.getElementById('midi-select');
+  const midiStatusText = document.getElementById('midi-status-text');
+
+  let midiAccess = null;
+  let activeInput = null;
+
+  function setMidiStatus(state, text){
+    midiDot.className = 'dot ' + (state||'');
+    midiStatusText.textContent = text;
+  }
+
+  function attachInput(input){
+    if (activeInput) activeInput.onmidimessage = null;
+    activeInput = input;
+    if (input){
+      input.onmidimessage = handleMidiMessage;
+      setMidiStatus('ok', input.name + ' に接続しました。演奏すると判定されます。');
+    }
+  }
+
+  function refreshInputList(){
+    if (!midiAccess) return;
+    const inputs = Array.from(midiAccess.inputs.values());
+    midiSelect.innerHTML = '';
+    if (inputs.length === 0){
+      midiSelect.disabled = true;
+      const opt = document.createElement('option');
+      opt.textContent = 'MIDI機器が見つかりません';
+      midiSelect.appendChild(opt);
+      setMidiStatus('wait', 'MIDIキーボードを接続してください(テスト用鍵盤でも練習できます)');
+      attachInput(null);
+      return;
+    }
+    midiSelect.disabled = false;
+    inputs.forEach((inp, i) => {
+      const opt = document.createElement('option');
+      opt.value = inp.id;
+      opt.textContent = inp.name;
+      midiSelect.appendChild(opt);
+    });
+    const toUse = inputs.find(i => i.id === midiSelect.value) || inputs[0];
+    midiSelect.value = toUse.id;
+    attachInput(toUse);
+  }
+
+  midiSelect.addEventListener('change', () => {
+    if (!midiAccess) return;
+    const inp = midiAccess.inputs.get(midiSelect.value);
+    attachInput(inp || null);
+  });
+
+  if (navigator.requestMIDIAccess){
+    navigator.requestMIDIAccess({ sysex:false }).then(access => {
+      midiAccess = access;
+      refreshInputList();
+      access.onstatechange = refreshInputList;
+    }).catch(err => {
+      setMidiStatus('err', 'MIDIへのアクセスが許可されませんでした。ブラウザの権限設定を確認してください。(テスト用鍵盤は利用できます)');
+    });
+  } else {
+    setMidiStatus('err', 'このブラウザはWeb MIDI APIに対応していません。Chrome / Edge / Opera 等でお試しください。(テスト用鍵盤は利用できます)');
+  }
+
+  function handleMidiMessage(ev){
+    const [status, d1, d2] = ev.data;
+    const cmd = status & 0xf0;
+    if (cmd === 0x90 && d2 > 0){
+      onNoteOn(d1);
+      setKeyVisual(d1, true);
+    } else if (cmd === 0x80 || (cmd === 0x90 && d2 === 0)){
+      setKeyVisual(d1, false);
+    }
+  }
+
+  /* ---------------- Virtual keyboard (fallback / testing) ---------------- */
+  function buildVirtualKeyboard(container){
+    container.innerHTML = '';
+    const kb = document.createElement('div');
+    kb.className = 'kb';
+    const LOW = 48, HIGH = 84; // C3..C6
+    const blackPCs = new Set([1,3,6,8,10]);
+    let whiteX = 0;
+    const whiteWidth = 34;
+    const whiteKeys = [];
+    for (let m = LOW; m <= HIGH; m++){
+      const pc = m % 12;
+      if (!blackPCs.has(pc)){
+        const el = document.createElement('div');
+        el.className = 'wkey';
+        el.dataset.note = m;
+        el.style.left = whiteX + 'px';
+        if (pc === 0){
+          const lbl = document.createElement('span');
+          lbl.className = 'key-label';
+          lbl.textContent = noteName(m);
+          el.appendChild(lbl);
+        }
+        kb.appendChild(el);
+        whiteKeys.push({m, x:whiteX});
+        whiteX += whiteWidth;
+      }
+    }
+    kb.style.width = whiteX + 'px';
+    for (let m = LOW; m <= HIGH; m++){
+      const pc = m % 12;
+      if (blackPCs.has(pc)){
+        const prevWhite = whiteKeys.filter(w => w.m < m).pop();
+        if (!prevWhite) continue;
+        const el = document.createElement('div');
+        el.className = 'bkey';
+        el.dataset.note = m;
+        el.style.left = (prevWhite.x + whiteWidth - 11) + 'px';
+        kb.appendChild(el);
+      }
+    }
+    container.appendChild(kb);
+
+    function pressHandler(e){
+      const target = e.target.closest('[data-note]');
+      if (!target) return;
+      e.preventDefault();
+      const note = Number(target.dataset.note);
+      target.classList.add('active');
+      onNoteOn(note);
+      const release = () => {
+        target.classList.remove('active');
+        window.removeEventListener('mouseup', release);
+        window.removeEventListener('touchend', release);
+      };
+      window.addEventListener('mouseup', release);
+      window.addEventListener('touchend', release);
+    }
+    kb.addEventListener('mousedown', pressHandler);
+    kb.addEventListener('touchstart', pressHandler, {passive:false});
+  }
+
+  function setKeyVisual(note, on){
+    document.querySelectorAll(`[data-note="${note}"]`).forEach(el => {
+      el.classList.toggle('active', on);
+    });
+  }
+
+  const kbWrapSetup = document.getElementById('kb-wrap-setup');
+  const kbWrapQuiz = document.getElementById('kb-wrap-quiz');
+  buildVirtualKeyboard(kbWrapSetup);
+  buildVirtualKeyboard(kbWrapQuiz);
+
+  document.getElementById('show-kb-setup-link').addEventListener('click', () => {
+    kbWrapSetup.style.display = kbWrapSetup.style.display === 'none' ? 'block' : 'none';
+  });
+  document.getElementById('show-kb-quiz-link').addEventListener('click', () => {
+    kbWrapQuiz.style.display = kbWrapQuiz.style.display === 'none' ? 'block' : 'none';
+  });
+
+  /* ---------------- Screens ---------------- */
+  const screens = {
+    setup: document.getElementById('screen-setup'),
+    quiz: document.getElementById('screen-quiz'),
+    result: document.getElementById('screen-result'),
+  };
+  const headerBadge = document.getElementById('header-badge');
+  function showScreen(name){
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+    headerBadge.textContent = name.toUpperCase();
+  }
+
+  /* ---------------- Setup: length selector ---------------- */
+  const lenGrid = document.getElementById('len-grid');
+  let selectedTotal = 10;
+  [10,20,30,40,50,60,70,80,90,100].forEach(n => {
+    const btn = document.createElement('button');
+    btn.className = 'len-btn' + (n===10 ? ' selected' : '');
+    btn.textContent = n;
+    btn.addEventListener('click', () => {
+      selectedTotal = n;
+      lenGrid.querySelectorAll('.len-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    lenGrid.appendChild(btn);
+  });
+
+  document.getElementById('start-btn').addEventListener('click', () => startQuiz(selectedTotal));
+
+  /* ---------------- Quiz logic ---------------- */
+  const chordSymbolEl = document.getElementById('chord-symbol');
+  const formPillEl = document.getElementById('form-pill');
+  const stackVisualEl = document.getElementById('stack-visual');
+  const stackCaptionLine = document.getElementById('stack-caption-line');
+  const statusAreaEl = document.getElementById('status-area');
+  const progressTextEl = document.getElementById('progress-text');
+  const progressScoreEl = document.getElementById('progress-score');
+  const progressFillEl = document.getElementById('progress-fill');
+
+  let quiz = null; // {total, index, results, current, clusterNotes, timer, startTime, locked}
+  const DEBOUNCE_MS = 130;
+  const FEEDBACK_DELAY_MS = 1150;
+
+  function startQuiz(total){
+    quiz = { total, index:0, results:[], current:null, clusterNotes:new Set(), timer:null, startTime:0, locked:true };
+    showScreen('quiz');
+    nextQuestion();
+  }
+
+  function renderStack(question){
+    stackVisualEl.className = 'stack ' + (question.formKey === 'A' ? 'formA' : 'formB');
+    stackVisualEl.innerHTML = '';
+    question.expectedOrder.forEach(deg => {
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.textContent = deg;
+      stackVisualEl.appendChild(chip);
+    });
+    stackCaptionLine.textContent = question.expectedOrder.join('→');
+  }
+
+  function nextQuestion(){
+    if (quiz.index >= quiz.total){ finishQuiz(); return; }
+    const q = generateQuestion();
+    quiz.current = q;
+    quiz.clusterNotes = new Set();
+    quiz.locked = false;
+    clearTimeout(quiz.timer);
+    quiz.startTime = performance.now();
+
+    chordSymbolEl.textContent = q.chordSymbol;
+    formPillEl.textContent = (q.formKey === 'A' ? 'Aフォーム' : 'Bフォーム');
+    formPillEl.className = 'form-banner ' + q.formKey;
+    renderStack(q);
+    statusAreaEl.innerHTML = '<div class="status-waiting"><span class="pulse"></span>演奏してください</div>';
+
+    progressTextEl.textContent = `問 ${quiz.index+1} / ${quiz.total}`;
+    const correctSoFar = quiz.results.filter(r=>r.correct).length;
+    const wrongSoFar = quiz.results.length - correctSoFar;
+    progressScoreEl.textContent = `○${correctSoFar} ×${wrongSoFar}`;
+    progressFillEl.style.width = ((quiz.index)/quiz.total*100) + '%';
+  }
+
+  function onNoteOn(note){
+    if (!quiz || quiz.locked || !quiz.current) return;
+    quiz.clusterNotes.add(note);
+    clearTimeout(quiz.timer);
+    quiz.timer = setTimeout(evaluateCurrent, DEBOUNCE_MS);
+  }
+
+  function evaluateCurrent(){
+    if (!quiz || quiz.locked || !quiz.current) return;
+    quiz.locked = true;
+    const playedArr = Array.from(quiz.clusterNotes);
+    const responseMs = performance.now() - quiz.startTime;
+    const verdict = judge(quiz.current, playedArr);
+    const q = quiz.current;
+
+    quiz.results.push({
+      rootIndex:q.rootIndex, qualityKey:q.qualityKey, formKey:q.formKey,
+      correct:verdict.correct, reason:verdict.reason || null,
+      responseMs, playedNotes:playedArr,
+    });
+
+    renderVerdict(verdict, playedArr, responseMs);
+
+    setTimeout(() => {
+      quiz.index++;
+      nextQuestion();
+    }, FEEDBACK_DELAY_MS);
+  }
+
+  function renderVerdict(verdict, playedArr, responseMs){
+    const playedNames = playedArr.slice().sort((a,b)=>a-b).map(noteName).join(', ') || '(なし)';
+    const sec = (responseMs/1000).toFixed(2);
+    if (verdict.correct){
+      statusAreaEl.innerHTML = `
+        <div class="result-mark correct">○</div>
+        <div class="result-meta">${sec}秒 / ${playedNames}</div>`;
+    } else {
+      statusAreaEl.innerHTML = `
+        <div class="result-mark incorrect">×</div>
+        <div class="result-reason">${verdict.detail}</div>
+        <div class="result-meta">${sec}秒 / 弾いた音: ${playedNames}</div>`;
+    }
+  }
+
+  document.getElementById('skip-btn').addEventListener('click', () => {
+    if (!quiz || quiz.locked || !quiz.current) return;
+    clearTimeout(quiz.timer);
+    evaluateCurrent();
+  });
+
+  /* ---------------- Result screen ---------------- */
+  function finishQuiz(){
+    const results = quiz.results;
+    const total = results.length;
+    const correct = results.filter(r=>r.correct).length;
+    const pct = total ? Math.round(correct/total*100) : 0;
+    const avgMs = total ? results.reduce((s,r)=>s+r.responseMs,0)/total : 0;
+
+    document.getElementById('score-pct').textContent = pct + '%';
+    document.getElementById('score-frac').textContent = `${correct} / ${total} 正解`;
+    document.getElementById('score-time').textContent = `平均反応速度: ${(avgMs/1000).toFixed(2)}秒`;
+
+    const qTable = document.getElementById('breakdown-quality');
+    qTable.innerHTML = '<tr><th>コード</th><th class="bar-cell">正答率</th><th>正解数</th></tr>';
+    QUALITY_KEYS.forEach(qk => {
+      const subset = results.filter(r=>r.qualityKey===qk);
+      const c = subset.filter(r=>r.correct).length;
+      const t = subset.length;
+      const p = t ? Math.round(c/t*100) : 0;
+      qTable.innerHTML += `<tr><td>${CHORD_QUALITIES[qk].label}</td><td class="bar-cell"><div class="mini-bar"><div style="width:${p}%"></div></div></td><td>${c}/${t}</td></tr>`;
+    });
+
+    const fTable = document.getElementById('breakdown-form');
+    fTable.innerHTML = '<tr><th>フォーム</th><th class="bar-cell">正答率</th><th>正解数</th></tr>';
+    ['A','B'].forEach(fk => {
+      const subset = results.filter(r=>r.formKey===fk);
+      const c = subset.filter(r=>r.correct).length;
+      const t = subset.length;
+      const p = t ? Math.round(c/t*100) : 0;
+      fTable.innerHTML += `<tr><td>${fk}フォーム</td><td class="bar-cell"><div class="mini-bar"><div style="width:${p}%"></div></div></td><td>${c}/${t}</td></tr>`;
+    });
+
+    const shareText = `ジャズ・ルートレスヴォイシング トレーニング\n${total}問中${correct}問正解 (${pct}%)\n平均反応速度: ${(avgMs/1000).toFixed(2)}秒\n#ジャズピアノ #ルートレスヴォイシング`;
+    document.getElementById('share-text-box').textContent = shareText;
+
+    const nativeBtn = document.getElementById('share-native-btn');
+    if (navigator.share){
+      nativeBtn.style.display = 'block';
+      nativeBtn.onclick = () => navigator.share({ text: shareText }).catch(()=>{});
+    } else {
+      nativeBtn.style.display = 'none';
+    }
+    document.getElementById('share-x-btn').onclick = () => {
+      window.open('https://twitter.com/intent/tweet?text=' + encodeURIComponent(shareText), '_blank');
+    };
+    document.getElementById('share-copy-btn').onclick = () => {
+      const btn = document.getElementById('share-copy-btn');
+      const done = () => { btn.textContent = 'コピーしました'; setTimeout(()=>btn.textContent='コピーする', 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(shareText).then(done).catch(done);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = shareText; document.body.appendChild(ta); ta.select();
+        try { document.execCommand('copy'); } catch(e){}
+        document.body.removeChild(ta);
+        done();
+      }
+    };
+
+    showScreen('result');
+  }
+
+  document.getElementById('retry-btn').addEventListener('click', () => startQuiz(quiz.total));
+  document.getElementById('back-setup-btn').addEventListener('click', () => showScreen('setup'));
+
+})();
+</script>
+</body>
+</html>

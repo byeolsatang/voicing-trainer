@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<script>
+(function(){
+  try {
+    var stored = localStorage.getItem('rvt-theme');
+    var theme = stored || ((window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch(e){
+    document.documentElement.setAttribute('data-theme','dark');
+  }
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MIDIキーボードの繋ぎ方ガイド</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root, :root[data-theme="dark"]{
+    color-scheme: dark;
+    --bg:#0a0a0f; --surface:#14141c; --surface-2:#1b1b26; --surface-3:#23232f;
+    --border:#2a2a38; --text:#f2efe9; --text-dim:#8b8b9a;
+    --pink:#ff3c6e; --mint:#4af0c4; --amber:#ffb547;
+    --text-pink:#ff3c6e; --text-mint:#4af0c4; --text-amber:#ffb547;
+    --glow2: rgba(74,240,196,0.09);
+    --radius:14px;
+  }
+  :root[data-theme="light"]{
+    color-scheme: light;
+    --bg:#f6f4ee; --surface:#ffffff; --surface-2:#eeebe2; --surface-3:#e2ddd0;
+    --border:#dcd6c7; --text:#1c1b1f; --text-dim:#6e6c75;
+    --pink:#ff3c6e; --mint:#4af0c4; --amber:#ffb547;
+    --text-pink:#c2185b; --text-mint:#0f8f6c; --text-amber:#a15c00;
+    --glow2: rgba(74,240,196,0.05);
+    --radius:14px;
+  }
+  button{
+    -webkit-appearance:none; appearance:none;
+    font:inherit; color:inherit; background:none; border:none;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -10%, var(--glow2), transparent 60%),
+      var(--bg);
+    color:var(--text); font-family:'Noto Sans JP',sans-serif; min-height:100vh; -webkit-font-smoothing:antialiased;
+    transition: background-color .2s, color .2s;
+  }
+  .mono{ font-family:'Space Mono','Courier New',monospace; }
+  #app{ max-width:680px; margin:0 auto; padding:28px 20px 70px; }
+
+  a.back{ color:var(--text-mint); font-size:13px; text-decoration:none; display:inline-block; margin-bottom:18px; }
+  a.back:hover{ text-decoration:underline; }
+
+  header.top{ margin-bottom:24px; }
+  .top-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+  header.top h1{ font-family:'Space Mono',monospace; font-size:22px; margin:0; }
+  header.top p{ color:var(--text-dim); font-size:13px; margin:0; line-height:1.7; }
+
+  .theme-toggle{
+    width:30px; height:30px; border-radius:50%; flex:0 0 auto;
+    background:var(--surface-2); border:1px solid var(--border); color:var(--text);
+    display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+  }
+  .theme-toggle:hover{ border-color:var(--text-dim); }
+  .theme-toggle svg{ width:15px; height:15px; }
+  .theme-toggle .icon-sun{ display:none; }
+  .theme-toggle .icon-moon{ display:block; }
+  [data-theme="light"] .theme-toggle .icon-sun{ display:block; }
+  [data-theme="light"] .theme-toggle .icon-moon{ display:none; }
+
+  .card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:22px; margin-bottom:18px; }
+  .card h2{ font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:0 0 14px; font-weight:700; }
+  .card h2 .num{ display:inline-block; width:20px; height:20px; line-height:20px; text-align:center; background:var(--mint); color:#08110d; border-radius:50%; font-family:'Space Mono',monospace; font-size:11px; margin-right:8px; }
+  p.body-text{ color:var(--text-dim); font-size:14px; line-height:1.8; margin:0 0 10px; }
+  p.body-text b{ color:var(--text); }
+  ul.steps{ margin:0; padding:0; list-style:none; }
+  ul.steps li{
+    counter-increment: step;
+    position:relative;
+    padding:10px 0 10px 30px;
+    font-size:14px;
+    color:var(--text);
+    border-bottom:1px solid var(--border);
+    line-height:1.7;
+  }
+  ul.steps li:last-child{ border-bottom:none; }
+  ul.steps{ counter-reset: step; }
+  ul.steps li::before{
+    content: counter(step);
+    position:absolute; left:0; top:10px;
+    width:20px; height:20px; border-radius:50%;
+    background:var(--surface-2); border:1px solid var(--border);
+    color:var(--text-mint); font-family:'Space Mono',monospace; font-size:11px;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  .conn-type{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:16px; margin-bottom:14px; }
+  .conn-type h3{ font-size:14px; margin:0 0 10px; font-family:'Space Mono',monospace; color:var(--text-amber); }
+  .flow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+  .flow .box{
+    background:var(--surface-3); border:1px solid var(--border); border-radius:8px;
+    padding:8px 12px; font-size:12px; font-family:'Space Mono',monospace; text-align:center; flex:0 0 auto;
+  }
+  .flow .arrow{ color:var(--text-dim); font-size:16px; }
+
+  .tester{ text-align:center; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--text-dim); display:inline-block; margin-right:8px; transition:background .2s; }
+  .dot.ok{ background:var(--mint); box-shadow:0 0 8px rgba(74,240,196,.6); }
+  .dot.err{ background:var(--pink); box-shadow:0 0 8px rgba(255,60,110,.6); }
+  .dot.wait{ background:var(--amber); }
+  select{
+    background:var(--surface-2); color:var(--text); border:1px solid var(--border); border-radius:8px;
+    padding:8px 10px; font-family:'Noto Sans JP',sans-serif; font-size:13px; width:100%; margin-top:10px;
+  }
+  .tester-status{ font-size:12px; color:var(--text-dim); margin-top:8px; }
+  .last-note{
+    font-family:'Space Mono',monospace; font-weight:700; font-size:42px; margin:18px 0 6px;
+    color:var(--text-mint); min-height:50px;
+  }
+  .note-log{ display:flex; gap:6px; justify-content:center; flex-wrap:wrap; min-height:28px; }
+  .note-log span{
+    font-family:'Space Mono',monospace; font-size:11px; background:var(--surface-2); border:1px solid var(--border);
+    border-radius:6px; padding:3px 8px; color:var(--text-dim);
+  }
+
+  details{ background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:10px; }
+  details summary{ cursor:pointer; font-size:13px; font-weight:700; color:var(--text); }
+  details p{ color:var(--text-dim); font-size:13px; line-height:1.8; margin:10px 0 0; }
+
+  pre.code{
+    background:#000; border:1px solid var(--border); border-radius:8px; padding:12px 14px;
+    font-family:'Space Mono',monospace; font-size:12px; color:var(--mint); overflow-x:auto; margin:8px 0;
+  }
+
+  footer.note{ text-align:center; color:var(--text-dim); font-size:11px; margin-top:30px; line-height:1.7; }
+</style>
+</head>
+<body>
+<div id="app">
+  <a class="back" href="index.html">← トレーニングアプリに戻る</a>
+
+  <header class="top">
+    <div class="top-row">
+      <h1>MIDIキーボードの繋ぎ方ガイド</h1>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="ライト/ダークテーマを切り替え" title="ライト/ダークテーマを切り替え">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+      </button>
+    </div>
+    <p>Rootless Voicing Trainer で実際の鍵盤を使うための接続手順です。お使いの機器に合う接続方法を選んでください。</p>
+  </header>
+
+  <div class="card">
+    <h2><span class="num">1</span>必要なもの</h2>
+    <p class="body-text">
+      ・MIDIキーボード/MIDIコントローラー(USB接続できるものが最も簡単です)<br>
+      ・USBケーブル(機器によりUSB-A / USB-B / USB-C)<br>
+      ・Web MIDI APIに対応したブラウザ(<b>Chrome / Edge / Opera</b> を推奨。Safari・Firefoxは標準では非対応です)
+    </p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">2</span>接続タイプを選ぶ</h2>
+
+    <div class="conn-type">
+      <h3>A. USB接続のキーボード/コントローラー(最も一般的)</h3>
+      <div class="flow">
+        <div class="box">MIDIキーボード</div>
+        <div class="arrow">→</div>
+        <div class="box">USBケーブル</div>
+        <div class="arrow">→</div>
+        <div class="box">PC</div>
+      </div>
+      <p class="body-text">USBケーブルでPCに挿すだけです。最近の機器はほぼ「クラスコンプライアント」なので、追加のドライバーは不要です。</p>
+    </div>
+
+    <div class="conn-type">
+      <h3>B. 古いタイプ(MIDI端子=丸い5pin DINのみ)のキーボード</h3>
+      <div class="flow">
+        <div class="box">MIDIキーボード</div>
+        <div class="arrow">→</div>
+        <div class="box">5pin DIN</div>
+        <div class="arrow">→</div>
+        <div class="box">USB-MIDI<br>インターフェース</div>
+        <div class="arrow">→</div>
+        <div class="box">USB</div>
+        <div class="arrow">→</div>
+        <div class="box">PC</div>
+      </div>
+      <p class="body-text">USB端子がない古いシンセ/キーボードの場合、「USB-MIDIインターフェースケーブル」(数百〜数千円程度)が別途必要です。MIDI OUT(キーボード側)とUSB-MIDIインターフェースのMIDI INを接続します。</p>
+    </div>
+
+    <div class="conn-type">
+      <h3>C. Bluetooth MIDIキーボード</h3>
+      <div class="flow">
+        <div class="box">MIDIキーボード</div>
+        <div class="arrow">⤳</div>
+        <div class="box">Bluetooth</div>
+        <div class="arrow">⤳</div>
+        <div class="box">PC</div>
+      </div>
+      <p class="body-text">OSのBluetooth設定からキーボードをペアリングします。ペアリング後は通常のMIDI入力として認識されます。接続が不安定な場合は本体との距離を近づけてください。</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">3</span>ブラウザ側の設定手順</h2>
+    <ul class="steps">
+      <li>キーボードをPCに接続する(上記の方法で)</li>
+      <li>Chrome / Edge などでこのトレーニングアプリ(<b>index.html</b>)を開く</li>
+      <li>初回アクセス時に「MIDIデバイスへのアクセスを許可しますか」というダイアログが出たら<b>許可</b>を選ぶ</li>
+      <li>設定画面のプルダウンに機器名が表示されたら選択する(1台のみなら自動で選択されます)</li>
+      <li>ドットが<b style="color:var(--text-mint)">緑色</b>になれば接続完了。鍵盤を弾くと反応します</li>
+    </ul>
+  </div>
+
+  <div class="card tester">
+    <h2 style="text-align:left;"><span class="num">4</span>ここで接続テスト</h2>
+    <p class="body-text" style="text-align:left;">下のプルダウンでMIDI機器を選び、実際に鍵盤を弾いてみてください。正しく繋がっていれば音名が表示されます。</p>
+    <div><span class="dot" id="dot"></span><span id="dot-label" style="font-size:12px;color:var(--text-dim);">確認中…</span></div>
+    <select id="device-select" disabled><option>未接続</option></select>
+    <div class="last-note" id="last-note">—</div>
+    <div class="note-log" id="note-log"></div>
+    <p class="tester-status" id="tester-status"></p>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">5</span>うまく繋がらない時</h2>
+    <details>
+      <summary>プルダウンに機器名が出てこない</summary>
+      <p>USBケーブルを挿し直す/別のUSBポートに挿してみてください。ブラウザのページを再読み込み(リロード)すると再検出されることがあります。OS側で機器が認識されているかも確認してください(Mac: 「Audio MIDI設定」アプリ / Windows: デバイスマネージャー)。</p>
+    </details>
+    <details>
+      <summary>許可のダイアログが出ない、または弾いても反応しない</summary>
+      <p>このHTMLファイルを直接ダブルクリックで開いている(アドレスバーが file:// で始まる)場合、ブラウザによってはMIDIアクセスがブロックされることがあります。その場合は下記「ローカルサーバーで開く」を試してください。</p>
+    </details>
+    <details>
+      <summary>DAWなど他のソフトを使っている</summary>
+      <p>DAWや他の音楽制作ソフトがMIDIデバイスを排他的に使用している場合、ブラウザ側で認識できないことがあります。一度そのソフトを閉じてから試してください。</p>
+    </details>
+    <details>
+      <summary>使っているブラウザで動かない</summary>
+      <p>Web MIDI APIはSafariやFirefoxでは標準で対応していません(Firefoxは about:config で実験的に有効化できる場合があります)。Chrome、Edge、Operaのいずれかでお試しください。</p>
+    </details>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">6</span>ローカルサーバーで開く方法(file://でうまくいかない場合)</h2>
+    <p class="body-text">voicing-trainer.html と midi-setup-guide.html を同じフォルダに置いた状態で、以下のいずれかを実行してください。</p>
+    <p class="body-text"><b>Mac / Linux(ターミナル)</b></p>
+    <pre class="code">cd フォルダのパス
+python3 -m http.server 8000</pre>
+    <p class="body-text"><b>Windows(コマンドプロンプト)</b></p>
+    <pre class="code">cd フォルダのパス
+python -m http.server 8000</pre>
+    <p class="body-text"><b>Node.jsがある場合</b></p>
+    <pre class="code">npx serve .</pre>
+    <p class="body-text">実行後、ブラウザで <b>http://localhost:8000/voicing-trainer.html</b> を開いてください。</p>
+  </div>
+
+  <footer class="note">
+    このページの接続テストもブラウザ内だけで動作し、演奏データはどこにも送信されません。
+  </footer>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ---------------- Theme (dark / light) ---------------- */
+  const THEME_KEY = 'rvt-theme';
+  function getStoredTheme(){ try { return localStorage.getItem(THEME_KEY); } catch(e){ return null; } }
+  function setStoredTheme(v){ try { localStorage.setItem(THEME_KEY, v); } catch(e){} }
+
+  const themeToggleBtn = document.getElementById('theme-toggle');
+  if (themeToggleBtn){
+    themeToggleBtn.addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+      const next = current === 'light' ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', next);
+      setStoredTheme(next);
+    });
+  }
+  if (window.matchMedia){
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+      if (!getStoredTheme()){
+        document.documentElement.setAttribute('data-theme', e.matches ? 'light' : 'dark');
+      }
+    });
+  }
+
+  const NOTE_NAMES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  function noteName(midi){
+    const pc = ((midi % 12) + 12) % 12;
+    const octave = Math.floor(midi/12) - 1;
+    return NOTE_NAMES_SHARP[pc] + octave;
+  }
+
+  const dot = document.getElementById('dot');
+  const dotLabel = document.getElementById('dot-label');
+  const select = document.getElementById('device-select');
+  const lastNoteEl = document.getElementById('last-note');
+  const logEl = document.getElementById('note-log');
+  const statusEl = document.getElementById('tester-status');
+
+  let midiAccess = null;
+  let activeInput = null;
+  const log = [];
+
+  function setStatus(state, text){
+    dot.className = 'dot ' + (state||'');
+    dotLabel.textContent = text;
+  }
+
+  function attach(input){
+    if (activeInput) activeInput.onmidimessage = null;
+    activeInput = input;
+    if (input){
+      input.onmidimessage = onMessage;
+      setStatus('ok', input.name + ' に接続中');
+    }
+  }
+
+  function refresh(){
+    if (!midiAccess) return;
+    const inputs = Array.from(midiAccess.inputs.values());
+    select.innerHTML = '';
+    if (inputs.length === 0){
+      select.disabled = true;
+      const opt = document.createElement('option');
+      opt.textContent = 'MIDI機器が見つかりません';
+      select.appendChild(opt);
+      setStatus('wait', 'MIDIキーボードを接続してください');
+      attach(null);
+      return;
+    }
+    select.disabled = false;
+    inputs.forEach(inp => {
+      const opt = document.createElement('option');
+      opt.value = inp.id; opt.textContent = inp.name;
+      select.appendChild(opt);
+    });
+    const toUse = inputs.find(i => i.id === select.value) || inputs[0];
+    select.value = toUse.id;
+    attach(toUse);
+  }
+
+  select.addEventListener('change', () => {
+    if (!midiAccess) return;
+    attach(midiAccess.inputs.get(select.value) || null);
+  });
+
+  if (navigator.requestMIDIAccess){
+    navigator.requestMIDIAccess({ sysex:false }).then(access => {
+      midiAccess = access;
+      refresh();
+      access.onstatechange = refresh;
+      statusEl.textContent = '';
+    }).catch(() => {
+      setStatus('err', 'MIDIアクセスが許可されませんでした');
+      statusEl.textContent = 'ブラウザの権限設定を確認するか、file:// で開いている場合はローカルサーバー経由で開いてみてください。';
+    });
+  } else {
+    setStatus('err', 'このブラウザはWeb MIDI APIに対応していません');
+    statusEl.textContent = 'Chrome / Edge / Opera でお試しください。';
+  }
+
+  function onMessage(ev){
+    const [status, d1, d2] = ev.data;
+    const cmd = status & 0xf0;
+    if (cmd === 0x90 && d2 > 0){
+      const name = noteName(d1);
+      lastNoteEl.textContent = name;
+      log.unshift(name);
+      if (log.length > 10) log.pop();
+      logEl.innerHTML = log.map(n => `<span>${n}</span>`).join('');
+    }
+  }
+})();
+</script>
+</body>
+</html>
