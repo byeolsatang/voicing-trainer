@@ -185,7 +185,7 @@
   .primary-btn{
     width:100%;
     background:var(--pink);
-    color:#1a0008;
+    color:#fff;
     border:none;
     border-radius:10px;
     padding:14px 0;
@@ -244,7 +244,7 @@
     margin:-36px -24px 22px;
     line-height:1;
   }
-  .form-banner.A{ background:var(--pink); color:#1a0008; }
+  .form-banner.A{ background:var(--pink); color:#fff; }
   .form-banner.B{ background:var(--mint); color:#08110d; }
 
   .stack-wrap{ display:flex; align-items:center; justify-content:center; gap:18px; margin-bottom:24px; }
@@ -355,7 +355,7 @@
       <h2>このアプリについて</h2>
       <p class="lead-text">
         ジャズコードのルートレス・ヴォイシング(ルートを抜いた4音)を瞬時に弾く練習です。<br>
-        <b>Aフォーム</b> = 下から 3→5→7→9 / <b>Bフォーム</b> = 下から 7→9→3→5。<br>
+        <b>Aフォーム / Bフォーム</b> の積み順はコード種類ごとに異なります(画面に表示されます)。<br>
         どちらもオクターブはどこで弾いてもOK、音の並び順だけ判定します。<br>
         対象コードは <b>7 / maj7 / m7 / m7♭5</b> の4種類×12キーです。
       </p>
@@ -487,16 +487,19 @@
   const NOTE_NAMES_SHARP = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 
   const CHORD_QUALITIES = {
-    dom7: { label:'7',     suffix:'7',     deg:{3:4, 5:7, 7:10, 9:14} },
-    maj7: { label:'maj7',  suffix:'maj7',  deg:{3:4, 5:7, 7:11, 9:14} },
-    m7:   { label:'m7',    suffix:'m7',    deg:{3:3, 5:7, 7:10, 9:14} },
-    m7b5: { label:'m7♭5',  suffix:'m7♭5',  deg:{3:3, 5:6, 7:10, 9:14} },
+    dom7: { label:'7',     suffix:'7',     deg:{3:4, 7:10, 9:14, 13:9}, degLabel:{3:'M3', 7:'♭7', 9:'9',  13:'13'} },
+    maj7: { label:'maj7',  suffix:'maj7',  deg:{3:4, 5:7,  7:11, 9:14}, degLabel:{3:'M3', 5:'5',  7:'M7', 9:'9'}  },
+    m7:   { label:'m7',    suffix:'m7',    deg:{3:3, 5:7,  7:10, 9:14}, degLabel:{3:'m3', 5:'5',  7:'♭7', 9:'9'}  },
+    m7b5: { label:'m7♭5',  suffix:'m7♭5',  deg:{3:3, 5:6,  7:10, 9:13}, degLabel:{3:'m3', 5:'♭5', 7:'♭7', 9:'♭9'} },
   };
   const QUALITY_KEYS = Object.keys(CHORD_QUALITIES);
 
+  // フォームの音の積み順 (コード種類ごと)
   const FORMS = {
-    A: [3,5,7,9],
-    B: [7,9,3,5],
+    dom7: { A: [7,9,3,13], B: [3,13,7,9] },
+    maj7: { A: [3,5,7,9],  B: [7,9,3,5]  },
+    m7:   { A: [3,5,7,9],  B: [7,9,3,5]  },
+    m7b5: { A: [3,5,7,9],  B: [7,3,5]    },
   };
 
   function noteName(midi){
@@ -523,9 +526,9 @@
 
     const degOffsets = CHORD_QUALITIES[q.qualityKey].deg;
     const expectedPCs = {};
-    [3,5,7,9].forEach(d => { expectedPCs[d] = (q.rootIndex + degOffsets[d]) % 12; });
+    Object.keys(degOffsets).map(Number).forEach(d => { expectedPCs[d] = (q.rootIndex + degOffsets[d]) % 12; });
     q.expectedPCs = expectedPCs;
-    q.expectedOrder = FORMS[q.formKey];
+    q.expectedOrder = FORMS[q.qualityKey][q.formKey];
     q.chordSymbol = ROOT_NAMES[q.rootIndex] + CHORD_QUALITIES[q.qualityKey].suffix;
     return q;
   }
@@ -533,8 +536,9 @@
   // Evaluate a set of played MIDI note numbers against a question.
   function judge(question, playedNotesArr){
     const n = playedNotesArr.length;
-    if (n !== 4){
-      return { correct:false, reason:'count', detail:`4音ちょうど弾いてください(今回は${n}音)` };
+    const expected = question.expectedOrder.length;
+    if (n !== expected){
+      return { correct:false, reason:'count', detail:`${expected}音ちょうど弾いてください(今回は${n}音)` };
     }
     const sorted = playedNotesArr.slice().sort((a,b)=>a-b);
     const pcToDegree = {};
@@ -543,7 +547,7 @@
     const playedPCs = sorted.map(m => m % 12);
     const playedPCSet = new Set(playedPCs);
 
-    let setMatches = playedPCSet.size === 4 && expectedPCSet.size === 4;
+    let setMatches = playedPCSet.size === expected && expectedPCSet.size === expected;
     if (setMatches){
       for (const pc of expectedPCSet){ if (!playedPCSet.has(pc)) { setMatches = false; break; } }
     }
@@ -651,7 +655,6 @@
         const el = document.createElement('div');
         el.className = 'wkey';
         el.dataset.note = m;
-        el.style.left = whiteX + 'px';
         if (pc === 0){
           const lbl = document.createElement('span');
           lbl.className = 'key-label';
@@ -768,13 +771,14 @@
   function renderStack(question){
     stackVisualEl.className = 'stack ' + (question.formKey === 'A' ? 'formA' : 'formB');
     stackVisualEl.innerHTML = '';
+    const degLabels = CHORD_QUALITIES[question.qualityKey].degLabel;
     question.expectedOrder.forEach(deg => {
       const chip = document.createElement('div');
       chip.className = 'chip';
-      chip.textContent = deg;
+      chip.textContent = degLabels[deg] ?? deg;
       stackVisualEl.appendChild(chip);
     });
-    stackCaptionLine.textContent = question.expectedOrder.join('→');
+    stackCaptionLine.textContent = question.expectedOrder.map(d => degLabels[d] ?? d).join('→');
   }
 
   function nextQuestion(){
@@ -803,7 +807,13 @@
     if (!quiz || quiz.locked || !quiz.current) return;
     quiz.clusterNotes.add(note);
     clearTimeout(quiz.timer);
-    quiz.timer = setTimeout(evaluateCurrent, DEBOUNCE_MS);
+    if (quiz.clusterNotes.size >= quiz.current.expectedOrder.length){
+      // 必要音数が揃ったら即判定（MIDIも仮想鍵盤も共通）
+      evaluateCurrent();
+    } else {
+      // 4音未満のままタイムアウトした場合のフォールバック（スキップ誘導）
+      quiz.timer = setTimeout(evaluateCurrent, 8000);
+    }
   }
 
   function evaluateCurrent(){

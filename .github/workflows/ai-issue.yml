@@ -1,0 +1,55 @@
+name: AI Issue Implementation
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  implement:
+    # "ai-fix" ラベルが付いたときだけ実行
+    if: github.event.label.name == 'ai-fix'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Implement changes with Claude
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: python3 .github/scripts/implement.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html midi-setup-guide.html
+          if git diff --staged --quiet; then
+            echo "変更なし。スキップします。"
+          else
+            TITLE=$(echo "${{ github.event.issue.title }}" | head -c 60)
+            git commit -m "✨ ${TITLE} (closes #${{ github.event.issue.number }})"
+            git push
+          fi
+
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '✅ 実装完了！Vercelへのデプロイが開始されます。\nhttps://voicing-trainer.vercel.app'
+            })
+            github.rest.issues.update({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'closed'
+            })
