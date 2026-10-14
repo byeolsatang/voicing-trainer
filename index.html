@@ -299,6 +299,15 @@
     width:100%; text-align:center; margin-top:18px; background:var(--surface-2); border:1px solid var(--border);
     border-radius:10px; padding:10px; font-size:13px; color:var(--text-dim); cursor:pointer; font-family:'Noto Sans JP',sans-serif;
   }
+  .kb-row{ display:flex; gap:8px; margin-top:18px; }
+  .kb-row .kb-toggle{ margin-top:0; width:auto; flex:1 1 auto; min-width:0; }
+  .kb-reset{
+    flex:0 0 auto; background:var(--surface-2); border:1px solid var(--pink); color:var(--text-pink);
+    border-radius:10px; padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; font-family:'Noto Sans JP',sans-serif;
+    white-space:nowrap;
+  }
+  .kb-reset:hover{ background:var(--surface-3); }
+  .kb-reset:active{ transform:translateY(1px); }
   .kb-wrap{ margin-top:14px; overflow-x:auto; padding-bottom:6px; touch-action:manipulation; -webkit-overflow-scrolling:touch; }
   .kb{ position:relative; display:flex; height:120px; width:max-content; user-select:none; }
   .wkey{
@@ -426,7 +435,10 @@
 
     <div class="skip-row"><button id="skip-btn">スキップ(不正解として記録して次へ)</button></div>
 
-    <button class="kb-toggle" id="show-kb-quiz-link">テスト用鍵盤を表示 / 隠す</button>
+    <div class="kb-row">
+      <button class="kb-toggle" id="show-kb-quiz-link">テスト用鍵盤を表示 / 隠す</button>
+      <button class="kb-reset" id="reset-btn" type="button" title="いま入力した音を取り消して、同じ問題をやり直す">↺ リセット</button>
+    </div>
     <div class="kb-wrap" id="kb-wrap-quiz" style="display:none;"></div>
   </section>
 
@@ -837,6 +849,29 @@
     stackCaptionLine.textContent = question.expectedOrder.map(d => degLabels[d] ?? d).join('→');
   }
 
+  // 待機表示。入力途中の音があれば「入力中 2/4: E3, G3」のように見せる。
+  function renderWaiting(){
+    const n = quiz.clusterNotes.size;
+    const need = quiz.current ? quiz.current.expectedOrder.length : 0;
+    let html = '<div class="status-waiting"><span class="pulse"></span>演奏してください</div>';
+    if (n > 0){
+      const names = Array.from(quiz.clusterNotes).sort((a,b)=>a-b).map(noteName).join(', ');
+      html += `<div class="result-meta">入力中 ${n}/${need}: ${names}</div>`;
+    }
+    statusAreaEl.innerHTML = html;
+  }
+
+  // 押し間違い対策: 入力中の音だけを取り消して、同じ問題をやり直す（成績には数えない）。
+  // 反応時間は問題を出した時点から数え続ける。
+  function resetInput(){
+    if (!quiz || quiz.locked || !quiz.current) return;
+    clearTimeout(quiz.timer);
+    quiz.clusterNotes = new Set();
+    document.querySelectorAll('.wkey.active, .bkey.active').forEach(el => el.classList.remove('active'));
+    renderWaiting();
+  }
+  document.getElementById('reset-btn').addEventListener('click', resetInput);
+
   function nextQuestion(){
     if (quiz.index >= quiz.total){ finishQuiz(); return; }
     const q = generateQuestion(quiz.qualityKeys);
@@ -850,7 +885,7 @@
     formPillEl.textContent = (q.formKey === 'A' ? 'Aフォーム' : 'Bフォーム');
     formPillEl.className = 'form-banner ' + q.formKey;
     renderStack(q);
-    statusAreaEl.innerHTML = '<div class="status-waiting"><span class="pulse"></span>演奏してください</div>';
+    renderWaiting();
 
     progressTextEl.textContent = `問 ${quiz.index+1} / ${quiz.total}`;
     const correctSoFar = quiz.results.filter(r=>r.correct).length;
@@ -867,8 +902,9 @@
       // 必要音数が揃ったら即判定（MIDIも仮想鍵盤も共通）
       evaluateCurrent();
     } else {
-      // 4音未満のままタイムアウトした場合のフォールバック（スキップ誘導）
+      // 必要音数に満たないままタイムアウトした場合のフォールバック（スキップ誘導）
       quiz.timer = setTimeout(evaluateCurrent, 8000);
+      renderWaiting();
     }
   }
 
