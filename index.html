@@ -299,7 +299,7 @@
     width:100%; text-align:center; margin-top:18px; background:var(--surface-2); border:1px solid var(--border);
     border-radius:10px; padding:10px; font-size:13px; color:var(--text-dim); cursor:pointer; font-family:'Noto Sans JP',sans-serif;
   }
-  .kb-wrap{ margin-top:14px; overflow-x:auto; padding-bottom:6px; }
+  .kb-wrap{ margin-top:14px; overflow-x:auto; padding-bottom:6px; touch-action:manipulation; -webkit-overflow-scrolling:touch; }
   .kb{ position:relative; display:flex; height:120px; width:max-content; user-select:none; }
   .wkey{
     width:34px; height:120px; background:#ece8e0; border:1px solid #11111a; border-radius:0 0 5px 5px;
@@ -660,7 +660,7 @@
     container.innerHTML = '';
     const kb = document.createElement('div');
     kb.className = 'kb';
-    const LOW = 48, HIGH = 84; // C3..C6
+    const LOW = 41, HIGH = 91; // F2..G6 (C3〜C6の左右に約半オクターブ。両端が白鍵になる範囲)
     const blackPCs = new Set([1,3,6,8,10]);
     let whiteX = 0;
     const whiteWidth = 34;
@@ -697,23 +697,56 @@
     }
     container.appendChild(kb);
 
+    // マウス: 押した瞬間に発音。
+    // タッチ: 指を離した時に発音（なぞって横スクロールしたときは鳴らさない）。
     function pressHandler(e){
       const target = e.target.closest('[data-note]');
       if (!target) return;
-      e.preventDefault();
+      const isMouse = e.pointerType === 'mouse';
+      if (isMouse && e.button !== 0) return;
       const note = Number(target.dataset.note);
+      const id = e.pointerId, sx = e.clientX, sy = e.clientY;
+      let moved = false;
       target.classList.add('active');
-      onNoteOn(note);
-      const release = () => {
-        target.classList.remove('active');
-        window.removeEventListener('mouseup', release);
-        window.removeEventListener('touchend', release);
+      if (isMouse) onNoteOn(note);
+
+      const onMove = (ev) => {
+        if (ev.pointerId !== id) return;
+        if (Math.abs(ev.clientX - sx) > 8 || Math.abs(ev.clientY - sy) > 8) moved = true;
       };
-      window.addEventListener('mouseup', release);
-      window.addEventListener('touchend', release);
+      const finish = (ev, cancelled) => {
+        if (ev.pointerId !== id) return;
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        window.removeEventListener('pointercancel', onCancel);
+        target.classList.remove('active');
+        if (!isMouse && !cancelled && !moved) onNoteOn(note);
+      };
+      const onUp = (ev) => finish(ev, false);
+      const onCancel = (ev) => finish(ev, true);
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+      window.addEventListener('pointercancel', onCancel);
     }
-    kb.addEventListener('mousedown', pressHandler);
-    kb.addEventListener('touchstart', pressHandler, {passive:false});
+    kb.addEventListener('pointerdown', pressHandler);
+    kb.addEventListener('contextmenu', (e) => e.preventDefault());
+  }
+
+  // 鍵盤を表示したとき、真ん中のド(C4)あたりが見える位置から始める。
+  // 一度隠してまた出したときは、前回のスクロール位置に戻す。
+  function toggleKeyboard(wrap){
+    if (wrap.style.display === 'none'){
+      wrap.style.display = 'block';
+      if (wrap.dataset.scroll !== undefined){
+        wrap.scrollLeft = Number(wrap.dataset.scroll);
+      } else {
+        const c4 = wrap.querySelector('.wkey[data-note="60"]');
+        if (c4) wrap.scrollLeft = Math.max(0, c4.offsetLeft - wrap.clientWidth/2 + c4.offsetWidth/2);
+      }
+    } else {
+      wrap.dataset.scroll = wrap.scrollLeft;
+      wrap.style.display = 'none';
+    }
   }
 
   function setKeyVisual(note, on){
@@ -727,12 +760,8 @@
   buildVirtualKeyboard(kbWrapSetup);
   buildVirtualKeyboard(kbWrapQuiz);
 
-  document.getElementById('show-kb-setup-link').addEventListener('click', () => {
-    kbWrapSetup.style.display = kbWrapSetup.style.display === 'none' ? 'block' : 'none';
-  });
-  document.getElementById('show-kb-quiz-link').addEventListener('click', () => {
-    kbWrapQuiz.style.display = kbWrapQuiz.style.display === 'none' ? 'block' : 'none';
-  });
+  document.getElementById('show-kb-setup-link').addEventListener('click', () => toggleKeyboard(kbWrapSetup));
+  document.getElementById('show-kb-quiz-link').addEventListener('click', () => toggleKeyboard(kbWrapQuiz));
 
   /* ---------------- Screens ---------------- */
   const screens = {
