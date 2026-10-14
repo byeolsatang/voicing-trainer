@@ -157,6 +157,11 @@
     font-size:12px; cursor:pointer; padding:0; font-family:inherit;
   }
 
+  /* chord options (setup) */
+  .check-row{ display:flex; align-items:center; gap:12px; cursor:pointer; font-size:14px; line-height:1.5; }
+  .check-row input[type="checkbox"]{ width:20px; height:20px; accent-color:var(--mint); cursor:pointer; flex:0 0 auto; margin:0; }
+  .check-note{ font-size:12px; color:var(--text-dim); margin:8px 0 0 32px; line-height:1.6; }
+
   /* quiz length grid */
   .len-grid{
     display:grid;
@@ -357,7 +362,7 @@
         ジャズコードのルートレス・ヴォイシング(ルートを抜いた3〜4音)を瞬時に弾く練習です。<br>
         <b>Aフォーム / Bフォーム</b> の積み順はコード種類ごとに異なります(画面に表示されます)。<br>
         どちらもオクターブはどこで弾いてもOK、音の並び順だけ判定します。<br>
-        対象コードは <b>7 / maj7 / m7 / m7♭5</b> の4種類×12キーです。
+        対象コードは <b>7 / maj7 / m7 / m7♭5</b> の4種類×12キーです(m7♭5は下のチェックで外せます)。
       </p>
     </div>
 
@@ -371,6 +376,15 @@
       </div>
       <p class="midi-status-text" id="midi-status-text">MIDIへのアクセスを確認しています…</p>
       <p style="margin:10px 0 0;"><a href="midi-setup-guide.html" target="_blank" style="color:var(--text-mint); font-size:12px; text-decoration:underline;">MIDIキーボードの繋ぎ方ガイドを見る →</a></p>
+    </div>
+
+    <div class="card">
+      <h2>出題するコード</h2>
+      <label class="check-row">
+        <input type="checkbox" id="opt-m7b5" checked>
+        <span>m7♭5 を含める</span>
+      </label>
+      <p class="check-note">7 / maj7 / m7 は常に出題されます。</p>
     </div>
 
     <div class="card">
@@ -511,12 +525,13 @@
   /* ---------------- Judgment ---------------- */
   // Build a question: random root, quality, form.
   let lastQuestionKey = '';
-  function generateQuestion(){
+  function generateQuestion(pool){
+    const keys = (pool && pool.length) ? pool : QUALITY_KEYS;
     let q;
     let tries = 0;
     do {
       const rootIndex = Math.floor(Math.random()*12);
-      const qualityKey = QUALITY_KEYS[Math.floor(Math.random()*QUALITY_KEYS.length)];
+      const qualityKey = keys[Math.floor(Math.random()*keys.length)];
       const formKey = Math.random() < 0.5 ? 'A' : 'B';
       const key = rootIndex+'|'+qualityKey+'|'+formKey;
       q = { rootIndex, qualityKey, formKey, key };
@@ -747,6 +762,17 @@
     lenGrid.appendChild(btn);
   });
 
+  /* ---------------- Setup: chord options ---------------- */
+  const OPT_M7B5_KEY = 'rvt-include-m7b5';
+  const optM7b5 = document.getElementById('opt-m7b5');
+  try { if (localStorage.getItem(OPT_M7B5_KEY) === '0') optM7b5.checked = false; } catch(e){}
+  optM7b5.addEventListener('change', () => {
+    try { localStorage.setItem(OPT_M7B5_KEY, optM7b5.checked ? '1' : '0'); } catch(e){}
+  });
+  function activeQualityKeys(){
+    return QUALITY_KEYS.filter(k => k !== 'm7b5' || optM7b5.checked);
+  }
+
   document.getElementById('start-btn').addEventListener('click', () => startQuiz(selectedTotal));
 
   /* ---------------- Quiz logic ---------------- */
@@ -764,7 +790,7 @@
   const FEEDBACK_DELAY_MS = 1150;
 
   function startQuiz(total){
-    quiz = { total, index:0, results:[], current:null, clusterNotes:new Set(), timer:null, startTime:0, locked:true };
+    quiz = { total, qualityKeys:activeQualityKeys(), index:0, results:[], current:null, clusterNotes:new Set(), timer:null, startTime:0, locked:true };
     showScreen('quiz');
     nextQuestion();
   }
@@ -784,7 +810,7 @@
 
   function nextQuestion(){
     if (quiz.index >= quiz.total){ finishQuiz(); return; }
-    const q = generateQuestion();
+    const q = generateQuestion(quiz.qualityKeys);
     quiz.current = q;
     quiz.clusterNotes = new Set();
     quiz.locked = false;
@@ -874,7 +900,7 @@
 
     const qTable = document.getElementById('breakdown-quality');
     qTable.innerHTML = '<tr><th>コード</th><th class="bar-cell">正答率</th><th>正解数</th></tr>';
-    QUALITY_KEYS.forEach(qk => {
+    quiz.qualityKeys.forEach(qk => {
       const subset = results.filter(r=>r.qualityKey===qk);
       const c = subset.filter(r=>r.correct).length;
       const t = subset.length;
