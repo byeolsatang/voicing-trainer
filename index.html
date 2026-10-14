@@ -490,7 +490,7 @@
     dom7: { label:'7',     suffix:'7',     deg:{3:4, 7:10, 9:14, 13:9}, degLabel:{3:'M3', 7:'♭7', 9:'9',  13:'13'} },
     maj7: { label:'maj7',  suffix:'maj7',  deg:{3:4, 5:7,  7:11, 9:14}, degLabel:{3:'M3', 5:'5',  7:'M7', 9:'9'}  },
     m7:   { label:'m7',    suffix:'m7',    deg:{3:3, 5:7,  7:10, 9:14}, degLabel:{3:'m3', 5:'5',  7:'♭7', 9:'9'}  },
-    m7b5: { label:'m7♭5',  suffix:'m7♭5',  deg:{3:3, 5:6,  7:10, 9:13}, degLabel:{3:'m3', 5:'♭5', 7:'♭7', 9:'♭9'} },
+    m7b5: { label:'m7♭5',  suffix:'m7♭5',  deg:{3:3, 5:6,  7:10, 9:14}, degLabel:{3:'m3', 5:'♭5', 7:'♭7', 9:'9'}  },
   };
   const QUALITY_KEYS = Object.keys(CHORD_QUALITIES);
 
@@ -499,7 +499,7 @@
     dom7: { A: [7,3,13],   B: [3,7,9]    },
     maj7: { A: [3,5,7,9],  B: [7,9,3,5]  },
     m7:   { A: [3,5,7,9],  B: [7,9,3,5]  },
-    m7b5: { A: [3,5,7,9],  B: [7,3,5]    },
+    m7b5: { A: [3,5,7,9],  B: [7,9,3,5]  },
   };
 
   function noteName(midi){
