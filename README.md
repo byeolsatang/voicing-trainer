@@ -91,3 +91,10 @@ GitHubのIssueに修正指示を書いて **"ai-fix" ラベル** を付けると
 
 - **テーマ管理**: CSS変数 + `data-theme`属性 + `prefers-color-scheme` + localStorageキー`rvt-theme`
 - 配色やボタンの挙動を変える際はこの仕組みを踏襲してください
+
+## PWA / OGP
+
+- `manifest.webmanifest` + `sw.js` により、ホーム画面追加（インストール）とオフライン起動に対応
+- アイコン: `icons/`（192 / 512 / maskable）、`apple-touch-icon.png`、`favicon.svg|ico`
+- SNS 共有用: `ogp.png`（1200×630）。`index.html` の OGP / Twitter Card は絶対 URL（`https://voicing-trainer.vercel.app/`）
+- `index.html` などを更新したら `sw.js` の `VERSION` を上げると古いキャッシュが確実に破棄されます（ページ自体はネット優先なので通常は不要）
